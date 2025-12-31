@@ -1,0 +1,6 @@
+checkpoints/
+wandb/
+
+experiment.ipynb
+
+data/
