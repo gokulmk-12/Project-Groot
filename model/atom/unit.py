@@ -58,8 +58,9 @@ class Transformer(nn.Module):
         return logits, loss
     
     @torch.no_grad()
-    def generate(self, x: torch.LongTensor, max_new_tokens: int, temperature: int = 1.0, top_k: int = None, top_p: int = None):
-        batch, _ = x.shape
+    def generate(self, x: torch.LongTensor, max_new_tokens: int, temperature: int = 1.0, top_k: int = None, top_p: float = None):
+        eos_token_id = 50256
+
         for _ in range(max_new_tokens):
             x_new = x[:, -self.context_length:]
             logits, _ = self(x_new)
@@ -93,6 +94,7 @@ class Transformer(nn.Module):
             else:
                 x_next = torch.argmax(probs, dim=-1, keepdim=True)
 
-            x = torch.cat((x, x_next), dim=1)
-        
+            if x_next.squeeze(-1) == eos_token_id:
+                break  
+            x = torch.cat((x, x_next), dim=1)    
         return x
