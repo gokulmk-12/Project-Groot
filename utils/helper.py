@@ -11,7 +11,7 @@ def get_lr(step: int, warmup_steps: int, total_steps: int, lr_peak: float, lr_mi
     return lr_min + cosine_decay * (lr_peak - lr_min)
 
 def print_metrics(iteration, train_loss, val_loss):
-    table = Table(title="Groot Tiny - Training Metrics", show_header=True)
+    table = Table(title="Groot - Training Metrics", show_header=True)
     table.add_column("Iter", justify="right")
     table.add_column("Train Loss", justify="right")
     table.add_column("Val Loss", justify="right")
@@ -26,7 +26,7 @@ def print_metrics(iteration, train_loss, val_loss):
 
 def print_model_config(model: Transformer, config: TransformerConfig):
     table = Table(
-        title="[bold green]Groot Tiny — Model Configuration",
+        title=f"[bold green]Groot {config.name} — Model Configuration",
         show_header=True,
         header_style="bold magenta"
     )

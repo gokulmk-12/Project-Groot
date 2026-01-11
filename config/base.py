@@ -20,6 +20,7 @@ class BaseConfig:
                 BaseConfig.init_member_classes(i_var)
 
 class TransformerConfig(BaseConfig):
+    name: str
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
     class input:

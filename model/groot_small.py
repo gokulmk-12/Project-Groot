@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from model.atom.unit import Transformer
-from config.tiny import GrootTinyConfig
+from config.small import GrootSmallConfig
 from utils.helper import print_metrics, print_model_config, get_lr
 
 from rich.console import Console
@@ -15,7 +15,7 @@ from rich.progress import (
 )
 
 console = Console()
-config = GrootTinyConfig()
+config = GrootSmallConfig()
 DEVICE = config.device
 model = Transformer(config=config).to(DEVICE)
 
@@ -26,9 +26,9 @@ CONTEXT_LENGTH = config.input.context_length
 TOKENS_PER_ITER = BATCH_SIZE * CONTEXT_LENGTH
 tokens_per_sec = 0.0
 
-RESUME = True
+RESUME = False
 start_iteration = 0
-RESUME_CHECKPOINT = "checkpoints/tiny_256.pth"
+RESUME_CHECKPOINT = "checkpoints/tiny_256_iter70000.pth"
 
 os.makedirs(SAVE_LOCATION, exist_ok=True)
 
@@ -48,8 +48,8 @@ progress = Progress(
     TimeRemainingColumn(),
 )
 
-train_data = np.memmap(os.path.join(DATA_LOCATION, "wiki_train.bin"), dtype=np.uint16, mode="r")
-val_data = np.memmap(os.path.join(DATA_LOCATION, "wiki_val.bin"), dtype=np.uint16, mode="r")
+train_data = np.memmap(os.path.join(DATA_LOCATION, "train.bin"), dtype=np.uint16, mode="r")
+val_data = np.memmap(os.path.join(DATA_LOCATION, "validation.bin"), dtype=np.uint16, mode="r")
 
 def get_batch(split):
     data = train_data if split == "train" else val_data    
