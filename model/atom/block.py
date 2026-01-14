@@ -46,6 +46,9 @@ class EncoderBlock(nn.Module):
 
     def forward(self, x):
         # TODO: Current: MHSA -> Layer Norm -> FNN -> Layer Norm, Have to try: Layer Norm -> MHSA -> Layer Norm -> FNN 
+        """
+        Currently does Pre-Norm, which is good for training stability and alleviates vanishing gradient, but leads to representation collapse, losing diversity and leading to identical learning. Post-Norm addresses representation collapse, but reintroduces vanishing gradients.
+        """
         mhsa_pre_norm = self.normalization_attn(x)
         mhsa = self.multi_head_attention(mhsa_pre_norm, mhsa_pre_norm, mhsa_pre_norm)
         mhsa_output = (mhsa + x)
