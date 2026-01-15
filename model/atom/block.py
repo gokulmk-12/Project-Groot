@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from config.base import TransformerConfig
 from model.atom.basic import MultiHeadAttention
+from model.residual.mhc import mHCResidual
 
 class EncoderBlock(nn.Module):
     """
@@ -82,6 +83,8 @@ class DecoderBlock(nn.Module):
         self.device         = self.config.device
         self.dropout_prob   = self.config.transformer.dropout_prob
         self.init           = self.config.init
+        self.allow_mhc      = self.config.transformer.allow_mhc
+        self.n_streams      = self.config.transformer.n_streams
 
         self.masked_multi_head_attention = MultiHeadAttention(config=self.config, mask=True)
         self.normalization_mhsa = nn.LayerNorm(self.embedding_dim)
@@ -97,6 +100,10 @@ class DecoderBlock(nn.Module):
         )
         self.normalization_fnn = nn.LayerNorm(self.embedding_dim)
 
+        if self.allow_mhc:
+            self.mhc_attn = mHCResidual(dim=self.embedding_dim, n_streams=self.n_streams)
+            self.mhc_ffnn = mHCResidual(dim=self.embedding_dim, n_streams=self.n_streams)
+
         self.fnn.apply(self.__init_weights)
     
     def __init_weights(self, module):
@@ -104,19 +111,35 @@ class DecoderBlock(nn.Module):
             torch.nn.init.normal_(module.weight, mean=self.init.linear_mean, std=self.init.linear_std)
     
     def forward(self, x, v_cross, k_cross):
-        masked_mhsa_pre_norm = self.normalization_mhsa(x)
-        masked_mhsa = self.masked_multi_head_attention(masked_mhsa_pre_norm, masked_mhsa_pre_norm, masked_mhsa_pre_norm)
-        masked_mhsa_output = masked_mhsa + x 
+        if self.allow_mhc:
+            x_agg = self.mhc_attn.get_aggregated_input(x)
+            masked_mhsa_pre_norm = self.normalization_mhsa(x_agg)
+            masked_mhsa_output = self.masked_multi_head_attention(masked_mhsa_pre_norm, masked_mhsa_pre_norm, masked_mhsa_pre_norm)
+            x = self.mhc_attn(x, masked_mhsa_output)
 
-        # cross_mhsa_pre_norm = self.normalization_cross_mhsa(masked_mhsa_output)
-        # cross_mhsa = self.cross_attention(cross_mhsa_pre_norm, k_cross, v_cross)
-        # cross_mhsa_output = cross_mhsa + masked_mhsa_output
+            x_agg = self.mhc_ffnn.get_aggregated_input(x)
+            fnn_pre_norm = self.normalization_fnn(x_agg)
+            fnn_output = self.fnn(fnn_pre_norm)
+            x = self.mhc_ffnn(x, fnn_output)
 
-        fnn_pre_norm = self.normalization_fnn(masked_mhsa_output)
-        fnn = self.fnn(fnn_pre_norm)
-        fnn_output = masked_mhsa_output + fnn
+            return x
+        
+        else:
+            masked_mhsa_pre_norm = self.normalization_mhsa(x)
+            masked_mhsa_output = self.masked_multi_head_attention(masked_mhsa_pre_norm, masked_mhsa_pre_norm, masked_mhsa_pre_norm)
+            if not self.config.transformer.allow_mhc:
+                masked_mhsa_output = masked_mhsa_output + x 
 
-        return fnn_output
+            # cross_mhsa_pre_norm = self.normalization_cross_mhsa(masked_mhsa_output)
+            # cross_mhsa = self.cross_attention(cross_mhsa_pre_norm, k_cross, v_cross)
+            # cross_mhsa_output = cross_mhsa + masked_mhsa_output
+
+            fnn_pre_norm = self.normalization_fnn(masked_mhsa_output)
+            fnn_output = self.fnn(fnn_pre_norm)
+            if not self.config.transformer.allow_mhc:
+                fnn_output = masked_mhsa_output + fnn_output
+
+            return fnn_output
 
 class TransformerEncoder(nn.Module):
     def __init__(self, config: TransformerConfig):

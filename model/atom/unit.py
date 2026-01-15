@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from model.atom.basic import InputEmbedding
 from config.base import TransformerConfig
+from model.residual.mhc import mHCResidual
 from model.atom.block import TransformerEncoder, TransformerDecoder
 
 class Transformer(nn.Module):
@@ -36,17 +37,31 @@ class Transformer(nn.Module):
         self.decoder = TransformerDecoder(config=config)
 
         self.classification_layer = nn.Linear(in_features=self.embedding_dim, out_features=self.vocab_size)
+
+        if self.config.transformer.allow_mhc:
+            self.final_mhc = mHCResidual(dim=self.embedding_dim, n_streams=self.config.transformer.n_streams)
+            self.final_ln = nn.LayerNorm(self.embedding_dim)
         
     def get_num_params(self):
         n_params = sum(p.numel() for p in self.parameters())
-        return n_params
+        return n_params 
     
     def forward(self, x: torch.LongTensor, targets: torch.FloatTensor = None):
         x_embed = self.input_embedding(x)
+
+        if self.config.transformer.allow_mhc:
+            x_embed = x_embed.unsqueeze(2).expand(-1, -1, self.config.transformer.n_streams, -1)
+        
         # encoder_out = self.encoder.forward(x_embed)
         decoder_out = self.decoder.forward(x_embed)
+
+        if self.config.transformer.allow_mhc:
+            decoder_out = self.final_mhc.get_aggregated_input(decoder_out)
+            decoder_out = self.final_ln(decoder_out)
+
         logits = self.classification_layer(decoder_out)
 
+        loss = None
         if targets is not None:
             loss = F.cross_entropy(
                 logits.view(-1, self.vocab_size),

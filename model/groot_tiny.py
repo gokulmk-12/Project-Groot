@@ -26,7 +26,7 @@ CONTEXT_LENGTH = config.input.context_length
 TOKENS_PER_ITER = BATCH_SIZE * CONTEXT_LENGTH
 tokens_per_sec = 0.0
 
-RESUME = True
+RESUME = False
 start_iteration = 0
 RESUME_CHECKPOINT = "checkpoints/tiny_256.pth"
 
@@ -48,8 +48,8 @@ progress = Progress(
     TimeRemainingColumn(),
 )
 
-train_data = np.memmap(os.path.join(DATA_LOCATION, "wiki_train.bin"), dtype=np.uint16, mode="r")
-val_data = np.memmap(os.path.join(DATA_LOCATION, "wiki_val.bin"), dtype=np.uint16, mode="r")
+train_data = np.memmap(os.path.join(DATA_LOCATION, "train.bin"), dtype=np.uint16, mode="r")
+val_data = np.memmap(os.path.join(DATA_LOCATION, "validation.bin"), dtype=np.uint16, mode="r")
 
 def get_batch(split):
     data = train_data if split == "train" else val_data    

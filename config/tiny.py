@@ -19,6 +19,8 @@ class GrootTinyConfig(TransformerConfig):
         num_decoders: int   = 6
         dropout_prob: float = 0.0
         fnn_factor: int     = 4
+        allow_mhc: bool     = True
+        n_streams: int      = 4
     
     class init:
         linear_mean: float = 0.0

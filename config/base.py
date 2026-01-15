@@ -37,6 +37,8 @@ class TransformerConfig(BaseConfig):
         num_decoders: int
         dropout_prob: float
         fnn_factor: int
+        allow_mhc: bool
+        n_streams: int
     
     class init:
         linear_mean: float
