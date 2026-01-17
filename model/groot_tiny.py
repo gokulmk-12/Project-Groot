@@ -44,8 +44,15 @@ progress = Progress(
     TextColumn("[bold blue]Training"),
     BarColumn(),
     TextColumn("[cyan]{task.completed}/{task.total} iters"),
+    TextColumn("•"),
+    TextColumn("[yellow]{task.fields[iter_time]:>6} ms"),
+    TextColumn("•"),
+    TextColumn("[green]{task.fields[tokens_sec]:>8} token/s"),
+    TextColumn("•"),
     TimeElapsedColumn(),
+    TextColumn("•"),
     TimeRemainingColumn(),
+    console=console,
 )
 
 train_data = np.memmap(os.path.join(DATA_LOCATION, "train.bin"), dtype=np.uint16, mode="r")
@@ -78,7 +85,7 @@ def estimate_loss(model):
     model.train()
     return out
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate, weight_decay=0.1)
+optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate, weight_decay=0.1, eps=1e-8)
 use_amp = (DEVICE == "cuda")
 
 model_table = print_model_config(model, config)
@@ -104,7 +111,9 @@ with progress:
     task = progress.add_task(
         "training",
         total=config.train.total_iters,
-        completed=start_iteration
+        completed=start_iteration,
+        iter_time="----",
+        tokens_sec="-------"
     )
 
     for iteration in range(start_iteration, config.train.total_iters):
@@ -147,7 +156,8 @@ with progress:
             }
             torch.save(checkpoint, f'{SAVE_LOCATION}/tiny_{CONTEXT_LENGTH}_iter{iteration+1}.pth')
 
-        start_time = time.time()
+        torch.cuda.synchronize()
+        start_time = time.perf_counter()
         X, y = get_batch(split = "train")
         
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=use_amp):
@@ -157,7 +167,16 @@ with progress:
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.train.max_grad_norm)
         optimizer.step()
-        iter_time = time.time() - start_time
-        tokens_per_sec = TOKENS_PER_ITER  / iter_time
 
-        progress.advance(task)
+        torch.cuda.synchronize()
+        iter_time = time.perf_counter() - start_time
+        iter_time_ms = iter_time * 1000
+        tokens_per_sec = int(TOKENS_PER_ITER  / iter_time)
+
+
+        progress.update(
+            task,
+            advance=1,
+            iter_time=f"{iter_time_ms:6.1f}",
+            tokens_sec=f"{tokens_per_sec:8d}",
+        )

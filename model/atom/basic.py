@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from config.base import TransformerConfig
 
@@ -62,6 +63,7 @@ class MultiHeadAttention(nn.Module):
         self.device         = self.config.device
         self.init           = self.config.init
         self.dropout_prob   = self.config.transformer.dropout_prob
+        self.use_flash      = self.config.transformer.use_flash
 
         self.W_q = nn.Linear(in_features=self.embedding_dim, out_features=self.embedding_dim, bias=False) # Query
         self.W_k = nn.Linear(in_features=self.embedding_dim, out_features=self.embedding_dim, bias=False) # Key
@@ -81,17 +83,32 @@ class MultiHeadAttention(nn.Module):
         self.resid_dropout  = nn.Dropout(p=self.dropout_prob)
     
     def forward(self, q: torch.FloatTensor, k: torch.FloatTensor, v: torch.FloatTensor):
-        batch, seq_len, _ = q.shape
+        batch, seq_len, C = q.shape
+        D = C // self.num_heads
         Q = self.W_q(q)
         K = self.W_k(k)
         V = self.W_v(v)
-        Q_split, K_split, V_split = self.split(Q, K, V)
 
-        attention, _ = self.scaled_dot_product_attention(Q_split, K_split, V_split)
-        attention_swap = attention.transpose(1, 2)
-        full_attention = attention_swap.reshape(batch, seq_len, -1)
+        # Use Flash Attention - Memory Efficient Algorithm, Produces same numerical results as the standard attention
+        if self.use_flash:
+            Q = Q.view(batch, seq_len, self.num_heads, D).transpose(1, 2)
+            K = K.view(batch, seq_len, self.num_heads, D).transpose(1, 2)
+            V = V.view(batch, seq_len, self.num_heads, D).transpose(1, 2)
 
-        mha_output = self.resid_dropout(self.output(full_attention))
+            attention = F.scaled_dot_product_attention(
+                Q, K, V,
+                attn_mask=None,
+                dropout_p=self.dropout_prob if self.training else 0.0,
+                is_causal=self.mask
+            )
+            
+
+        else:
+            Q_split, K_split, V_split = self.split(Q, K, V)
+            attention, _ = self.scaled_dot_product_attention(Q_split, K_split, V_split)
+
+        attn = attention.transpose(1, 2).contiguous().view(batch, seq_len, -1)
+        mha_output = self.resid_dropout(self.output(attn))
         return mha_output
     
     def split(self, Q, K, V):

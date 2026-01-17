@@ -36,7 +36,10 @@ class Transformer(nn.Module):
         # self.encoder = TransformerEncoder(config=config)
         self.decoder = TransformerDecoder(config=config)
 
-        self.classification_layer = nn.Linear(in_features=self.embedding_dim, out_features=self.vocab_size)
+        self.classification_layer = nn.Linear(in_features=self.embedding_dim, out_features=self.vocab_size, bias=False)
+
+        # Weight sharing - These layers learn the same representation
+        self.input_embedding.embedding_layer.weight = self.classification_layer.weight
 
         if self.config.transformer.allow_mhc:
             self.final_mhc = mHCResidual(dim=self.embedding_dim, n_streams=self.config.transformer.n_streams)

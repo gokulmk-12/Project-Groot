@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint as checkpoint
 
 from config.base import TransformerConfig
 from model.atom.basic import MultiHeadAttention
@@ -170,5 +171,6 @@ class TransformerDecoder(nn.Module):
     
     def forward(self, x):
         for block in self.decoder_blocks:
-            x = block(x, x, x)
+            x = checkpoint.checkpoint(block, x, x, x, use_reentrant=False)
+            # x = block(x, x, x)
         return x

@@ -39,6 +39,7 @@ class TransformerConfig(BaseConfig):
         fnn_factor: int
         allow_mhc: bool
         n_streams: int
+        use_flash: bool
     
     class init:
         linear_mean: float

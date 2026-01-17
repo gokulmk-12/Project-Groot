@@ -6,23 +6,23 @@ from config.tiny import GrootTinyConfig
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
-checkpoint = hf_hub_download(
-    repo_id="gokulmk-12/Project-Groot",
-    filename="groot-tiny/model.safetensors"
-)  
-state_dict = load_file(checkpoint)
+# checkpoint = hf_hub_download(
+#     repo_id="gokulmk-12/Project-Groot",
+#     filename="groot-tiny/model.safetensors"
+# )  
+# state_dict = load_file(checkpoint)
 
 config = GrootTinyConfig()
 model = Transformer(config=config).to(config.device)
 model.eval()
 tokenizer = tiktoken.get_encoding(encoding_name="gpt2")
 
-# checkpoint_loc = "checkpoints/tiny_256.pth"
-# checkpoint = torch.load(checkpoint_loc, map_location=config.device, weights_only=True)
+checkpoint_loc = "checkpoints/tiny_256_iter30000.pth"
+checkpoint = torch.load(checkpoint_loc, map_location=config.device, weights_only=True)
 
-model.load_state_dict(state_dict)
+model.load_state_dict(checkpoint["state_dict"])
 
-prompt = "The George Medal"
+prompt = "Once upon a time"
 input_tokens = tokenizer.encode(prompt)
 input_tokens_torch = torch.tensor(input_tokens, dtype=torch.long, device=config.device).unsqueeze(0)
 
