@@ -23,7 +23,7 @@ model = Transformer(config=config).to(device)
 # state_dict = load_file(checkpoint)
 # model.load_state_dict(state_dict)
 
-checkpoint_loc = "checkpoints/tiny_256_iter30000.pth"
+checkpoint_loc = "checkpoints/tiny_512.pth"
 checkpoint = torch.load(checkpoint_loc, map_location=config.device, weights_only=True)
 
 model.load_state_dict(checkpoint["state_dict"])

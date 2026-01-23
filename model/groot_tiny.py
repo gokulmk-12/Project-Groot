@@ -26,9 +26,9 @@ CONTEXT_LENGTH = config.input.context_length
 TOKENS_PER_ITER = BATCH_SIZE * CONTEXT_LENGTH
 tokens_per_sec = 0.0
 
-RESUME = False
+RESUME = True
 start_iteration = 0
-RESUME_CHECKPOINT = "checkpoints/tiny_256.pth"
+RESUME_CHECKPOINT = "checkpoints/tiny_512_iter20000.pth"
 
 os.makedirs(SAVE_LOCATION, exist_ok=True)
 
